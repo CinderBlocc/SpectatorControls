@@ -3,7 +3,7 @@ Spectator Controls
 9|CAMERA LOCKING
 1|Enable camera lock|Spectate_LockPosition
 7
-9| - Locks camera in current location, or new location specified by "SpectateSetCameraAll" or "SpectateSetCameraPosition"
+9| - Locks camera in current location, or new location specified by "SpectateSetCamera" or "SpectateSetCameraPosition"
 1|Enable camera restoration##camrest|Spectate_EnableRestoration
 7
 9| - Saves camera before a goal replay and restores it after goal replay (not needed if camera lock is enabled)
