@@ -4,7 +4,7 @@
 #include "bakkesmod/wrappers/includes.h"
 #include <chrono>
 
-class SpectateCameraShortcuts : public BakkesMod::Plugin::BakkesModPlugin
+class SpectatorControls : public BakkesMod::Plugin::BakkesModPlugin
 {
 private:
 	std::shared_ptr<bool> enableRestoration;
@@ -66,4 +66,6 @@ public:
 
 	void GetCameraFOV();
 	void SetCameraFOV(std::vector<std::string> params);
+
+	void SetCameraPositionFlyBall(vector<string> params);
 };

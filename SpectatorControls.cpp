@@ -2,11 +2,11 @@
 
 using namespace std;
 
-BAKKESMOD_PLUGIN(SpectateCameraShortcuts, "Tools for spectators", "1.3", PLUGINTYPE_SPECTATOR)
+BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.3", PLUGINTYPE_SPECTATOR)
 
 #define GET_DURATION(x, y) chrono::duration<double> x = chrono::duration_cast<chrono::duration<double>>(chrono::steady_clock::now() - y)
 
-void SpectateCameraShortcuts::onLoad()
+void SpectatorControls::onLoad()
 {
 	//CVARS
 	enableRestoration = make_shared<bool>(false);
@@ -21,8 +21,8 @@ void SpectateCameraShortcuts::onLoad()
 	cvarManager->registerCvar("Spectate_EnableRestoration", "1", "Saves camera values before a goal replay and restores values after goal replay", true, true, 0, true, 1).bindTo(enableRestoration);
 	cvarManager->registerCvar("Spectate_LockPosition", "0", "Locks the camera to the last specified position", true, true, 0, true, 1).bindTo(lockPosition);
 	cvarManager->registerCvar("Spectate_OverrideZoom", "0", "Overrides zoom controls with analog triggers", true, true, 0, true, 1).bindTo(overrideZoom);
-	cvarManager->getCvar("Spectate_LockPosition").addOnValueChanged(bind(&SpectateCameraShortcuts::OnLockPositionChanged, this));
-	cvarManager->getCvar("Spectate_OverrideZoom").addOnValueChanged(bind(&SpectateCameraShortcuts::OnZoomEnabledChanged, this));
+	cvarManager->getCvar("Spectate_LockPosition").addOnValueChanged(bind(&SpectatorControls::OnLockPositionChanged, this));
+	cvarManager->getCvar("Spectate_OverrideZoom").addOnValueChanged(bind(&SpectatorControls::OnZoomEnabledChanged, this));
 
 	cvarManager->registerCvar("Spectate_OverrideZoom_Transition_Time", "0.5", "Averages zoom input", true, true, 0, true, 2).bindTo(overrideZoomTransition);
 	cvarManager->registerCvar("Spectate_OverrideZoom_Speed", "45", "Zoom speed", true, true, 0, true, 150).bindTo(overrideZoomSpeed);
@@ -42,10 +42,13 @@ void SpectateCameraShortcuts::onLoad()
 	cvarManager->registerNotifier("SpectateIncreaseZoomSpeed", [this](std::vector<string> params){ChangeZoomSpeed(true);}, "Increases zoom speed by 20", PERMISSION_ALL);
 	cvarManager->registerNotifier("SpectateDecreaseZoomSpeed", [this](std::vector<string> params){ChangeZoomSpeed(false);}, "Decreases zoom speed by 20", PERMISSION_ALL);
 
+	cvarManager->registerNotifier("SpectateSetCameraPositionFlyBall", [this](std::vector<string> params){SetCameraPositionFlyBall(params);},
+									  "Force the camera into flycam with the ball as the target and set the position", PERMISSION_ALL);
+
 	//HOOK EVENTS
-	gameWrapper->HookEvent("Function TAGame.Camera_Replay_TA.UpdateCamera", std::bind(&SpectateCameraShortcuts::CameraTick, this));
-	gameWrapper->HookEvent("Function TAGame.Team_TA.EventScoreUpdated", bind(&SpectateCameraShortcuts::StoreCameraAll, this));
-	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", bind(&SpectateCameraShortcuts::ResetCameraAll, this));
+	gameWrapper->HookEvent("Function TAGame.Camera_Replay_TA.UpdateCamera", std::bind(&SpectatorControls::CameraTick, this));
+	gameWrapper->HookEvent("Function TAGame.Team_TA.EventScoreUpdated", bind(&SpectatorControls::StoreCameraAll, this));
+	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", bind(&SpectatorControls::ResetCameraAll, this));
 	
 	//KEYBINDS
 	zoomInName = "Spectate_Keybind_ZoomIn";
@@ -56,16 +59,16 @@ void SpectateCameraShortcuts::onLoad()
 	cvarManager->registerCvar(zoomOutName, "XboxTypeS_LeftTrigger", "Zoom out keybind", true);
 	cvarManager->registerCvar(zoomSpeedIncreaseName, "XboxTypeS_LeftThumbStick", "Zoom speed decrease keybind", true);
 	cvarManager->registerCvar(zoomSpeedDecreaseName, "XboxTypeS_RightThumbStick", "Zoom speed increase keybind", true);
-	cvarManager->getCvar(zoomInName).addOnValueChanged(bind(&SpectateCameraShortcuts::OnKeyChanged, this, 0, zoomInName));
-	cvarManager->getCvar(zoomOutName).addOnValueChanged(bind(&SpectateCameraShortcuts::OnKeyChanged, this, 1, zoomOutName));
-	cvarManager->getCvar(zoomSpeedIncreaseName).addOnValueChanged(bind(&SpectateCameraShortcuts::OnKeyChanged, this, 2, zoomSpeedIncreaseName));
-	cvarManager->getCvar(zoomSpeedDecreaseName).addOnValueChanged(bind(&SpectateCameraShortcuts::OnKeyChanged, this, 3, zoomSpeedDecreaseName));
+	cvarManager->getCvar(zoomInName).addOnValueChanged(bind(&SpectatorControls::OnKeyChanged, this, 0, zoomInName));
+	cvarManager->getCvar(zoomOutName).addOnValueChanged(bind(&SpectatorControls::OnKeyChanged, this, 1, zoomOutName));
+	cvarManager->getCvar(zoomSpeedIncreaseName).addOnValueChanged(bind(&SpectatorControls::OnKeyChanged, this, 2, zoomSpeedIncreaseName));
+	cvarManager->getCvar(zoomSpeedDecreaseName).addOnValueChanged(bind(&SpectatorControls::OnKeyChanged, this, 3, zoomSpeedDecreaseName));
 
 	keyZoomIn = gameWrapper->GetFNameIndexByString(cvarManager->getCvar(zoomInName).getStringValue());
 	keyZoomOut = gameWrapper->GetFNameIndexByString(cvarManager->getCvar(zoomOutName).getStringValue());
 }
-void SpectateCameraShortcuts::onUnload(){}
-void SpectateCameraShortcuts::OnKeyChanged(int key, string cvarName)
+void SpectatorControls::onUnload(){}
+void SpectatorControls::OnKeyChanged(int key, string cvarName)
 {
 	string stringValue = cvarManager->getCvar(cvarName).getStringValue();
 
@@ -75,7 +78,7 @@ void SpectateCameraShortcuts::OnKeyChanged(int key, string cvarName)
 	else if(key == 3) cvarManager->setBind(stringValue, "SpectateDecreaseZoomSpeed");
 	else cvarManager->log("Invalid key index");
 }
-ServerWrapper SpectateCameraShortcuts::GetCurrentGameState()
+ServerWrapper SpectatorControls::GetCurrentGameState()
 {
 	if(gameWrapper->IsInReplay())
 		return gameWrapper->GetGameEventAsReplay().memory_address;
@@ -86,7 +89,7 @@ ServerWrapper SpectateCameraShortcuts::GetCurrentGameState()
 }
 
 //Restoration
-void SpectateCameraShortcuts::StoreCameraAll()
+void SpectatorControls::StoreCameraAll()
 {
 	if(!(*enableRestoration)) return;
 
@@ -98,7 +101,7 @@ void SpectateCameraShortcuts::StoreCameraAll()
 		savedFOV = camera.GetFOV();
 	}
 }
-void SpectateCameraShortcuts::ResetCameraAll()
+void SpectatorControls::ResetCameraAll()
 {
 	if(!(*enableRestoration)) return;
 
@@ -113,7 +116,7 @@ void SpectateCameraShortcuts::ResetCameraAll()
 }
 
 //Camera Tick
-void SpectateCameraShortcuts::CameraTick()
+void SpectatorControls::CameraTick()
 {
 	//chrono::duration<double> dur = chrono::duration_cast<chrono::duration<double>>(chrono::steady_clock::now() - previousTime);
 	GET_DURATION(dur, previousTime);
@@ -123,14 +126,14 @@ void SpectateCameraShortcuts::CameraTick()
 	if(*lockPosition) LockPosition();
 	if(*overrideZoom) OverrideZoom(delta);
 }
-void SpectateCameraShortcuts::LockPosition()
+void SpectatorControls::LockPosition()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(camera.IsNull()) return;
 
 	camera.SetLocation(savedLocation);
 }
-void SpectateCameraShortcuts::OnLockPositionChanged()
+void SpectatorControls::OnLockPositionChanged()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(camera.IsNull()) return;
@@ -140,7 +143,7 @@ void SpectateCameraShortcuts::OnLockPositionChanged()
 		savedLocation = camera.GetLocation();
 	}
 }
-void SpectateCameraShortcuts::OverrideZoom(double delta)
+void SpectatorControls::OverrideZoom(double delta)
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(camera.IsNull()) return;
@@ -195,7 +198,7 @@ void SpectateCameraShortcuts::OverrideZoom(double delta)
 	if(newFOV > FOVmax) newFOV = FOVmax;
 	camera.SetFOV(newFOV);
 }
-void SpectateCameraShortcuts::ChangeZoomSpeed(bool increaseOrDecrease)
+void SpectatorControls::ChangeZoomSpeed(bool increaseOrDecrease)
 {
 	CVarWrapper zoomSpeed = cvarManager->getCvar("Spectate_OverrideZoom_Speed");
 	float curr = zoomSpeed.getFloatValue();
@@ -213,7 +216,7 @@ void SpectateCameraShortcuts::ChangeZoomSpeed(bool increaseOrDecrease)
 
 	zoomSpeed.setValue(curr);
 }
-void SpectateCameraShortcuts::OnZoomEnabledChanged()
+void SpectatorControls::OnZoomEnabledChanged()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(camera.IsNull()) return;
@@ -223,7 +226,7 @@ void SpectateCameraShortcuts::OnZoomEnabledChanged()
 }
 
 //ALL
-void SpectateCameraShortcuts::GetCameraAll()
+void SpectatorControls::GetCameraAll()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
@@ -235,7 +238,7 @@ void SpectateCameraShortcuts::GetCameraAll()
 		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCamera " + to_string(camera.GetLocation().X) + " " + to_string(camera.GetLocation().Y) + " " + to_string(camera.GetLocation().Z) + " " + to_string(camera.GetRotation().Pitch / 182.044449) + " " + to_string(camera.GetRotation().Yaw / 182.044449) + " " + to_string(camera.GetRotation().Roll / 182.044449) + " " + to_string(camera.GetFOV()) + "\"");
 	}
 }
-void SpectateCameraShortcuts::SetCameraAll(std::vector<string> params)
+void SpectatorControls::SetCameraAll(std::vector<string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -292,7 +295,7 @@ void SpectateCameraShortcuts::SetCameraAll(std::vector<string> params)
 }
 
 //POSITION
-void SpectateCameraShortcuts::GetCameraPosition()
+void SpectatorControls::GetCameraPosition()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
@@ -302,7 +305,7 @@ void SpectateCameraShortcuts::GetCameraPosition()
 		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraPosition " + to_string(camera.GetLocation().X) + " " + to_string(camera.GetLocation().Y) + " " + to_string(camera.GetLocation().Z) + "\"");
 	}
 }
-void SpectateCameraShortcuts::SetCameraPosition(std::vector<string> params)
+void SpectatorControls::SetCameraPosition(std::vector<string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -333,7 +336,7 @@ void SpectateCameraShortcuts::SetCameraPosition(std::vector<string> params)
 
 
 //ROTATION
-void SpectateCameraShortcuts::GetCameraRotation()
+void SpectatorControls::GetCameraRotation()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
@@ -343,7 +346,7 @@ void SpectateCameraShortcuts::GetCameraRotation()
 		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraRotation " + to_string(camera.GetRotation().Pitch / 182.044449) + " " + to_string(camera.GetRotation().Yaw / 182.044449) + " " + to_string(camera.GetRotation().Roll / 182.044449) + "\"");
 	}
 }
-void SpectateCameraShortcuts::SetCameraRotation(std::vector<string> params)
+void SpectatorControls::SetCameraRotation(std::vector<string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -373,7 +376,7 @@ void SpectateCameraShortcuts::SetCameraRotation(std::vector<string> params)
 }
 
 //FOV
-void SpectateCameraShortcuts::GetCameraFOV()
+void SpectatorControls::GetCameraFOV()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
@@ -383,7 +386,7 @@ void SpectateCameraShortcuts::GetCameraFOV()
 		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraFOV " + to_string(camera.GetFOV()) + "\"");
 	}
 }
-void SpectateCameraShortcuts::SetCameraFOV(std::vector<string> params)
+void SpectatorControls::SetCameraFOV(std::vector<string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -400,6 +403,27 @@ void SpectateCameraShortcuts::SetCameraFOV(std::vector<string> params)
 			camera.SetFOV(savedFOV);
 			camera.SetbLockedFOV(0);
 		}
+	}
+	else
+		cvarManager->log("Cannot change camera while in control of a car!");
+}
+
+//FORCE FLYCAM
+void SpectatorControls::SetCameraPositionFlyBall(vector<string> params)
+{
+	CameraWrapper camera = gameWrapper->GetCamera();
+	if(camera.IsNull()) return;
+	ServerWrapper server = GetCurrentGameState();
+	if(server.IsNull()) return;
+	BallWrapper ball = server.GetBall();
+	if(ball.IsNull()) return;
+	
+	if(gameWrapper->GetLocalCar().IsNull())
+	{
+		camera.SetCameraState("Fly");
+		camera.SetFocusActor("Ball");
+		SetCameraPosition(params);
+		return;
 	}
 	else
 		cvarManager->log("Cannot change camera while in control of a car!");
