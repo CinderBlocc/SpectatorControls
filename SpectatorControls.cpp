@@ -9,11 +9,10 @@
 	Right/Left trigger are "aUp"
 	Use that to get analog input for zoom override
 
-	When cameralock is enabled, disable all movement inputs
 */
 
 
-BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.3", PLUGINTYPE_SPECTATOR)
+BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.4", PLUGINTYPE_SPECTATOR)
 
 #define GET_DURATION(x, y) std::chrono::duration<double> x = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - y)
 
