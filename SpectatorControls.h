@@ -1,5 +1,5 @@
 #pragma once
-#pragma comment(lib, "BakkesMod.lib")
+#pragma comment(lib, "pluginsdk.lib")
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/wrappers/includes.h"
 #include <chrono>
@@ -23,26 +23,26 @@ private:
 	int keyZoomIn;
 	int keyZoomOut;
 
-	string zoomInName;
-	string zoomOutName;
-	string zoomSpeedIncreaseName;
-	string zoomSpeedDecreaseName;
+	std::string zoomInName;
+	std::string zoomOutName;
+	std::string zoomSpeedIncreaseName;
+	std::string zoomSpeedDecreaseName;
 
 	const double baseDelta = 1.0/60.0;
-	chrono::steady_clock::time_point previousTime;
+	std::chrono::steady_clock::time_point previousTime;
 	struct ZoomInput
 	{
 		double amount;
 		float speed;
-		chrono::steady_clock::time_point inputTime;
+		std::chrono::steady_clock::time_point inputTime;
 	};
-	vector<ZoomInput> zoomInputs;
+	std::vector<ZoomInput> zoomInputs;
 
 public:
 	virtual void onLoad();
 	virtual void onUnload();
 
-	void OnKeyChanged(int key, string cvarName);
+	void OnKeyChanged(int key, std::string cvarName);
 	ServerWrapper GetCurrentGameState();
 
 	void ResetCameraAll();
@@ -67,5 +67,5 @@ public:
 	void GetCameraFOV();
 	void SetCameraFOV(std::vector<std::string> params);
 
-	void SetCameraPositionFlyBall(vector<string> params);
+	void SetCameraFlyBall();
 };

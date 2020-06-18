@@ -1,28 +1,39 @@
 #include "SpectatorControls.h"
 
-using namespace std;
+//using namespace std;
+
+
+/*
+
+	HOOK TAGame.PlayerInput_TA.PlayerInput TO GET FULL INPUTS
+	Right/Left trigger are "aUp"
+	Use that to get analog input for zoom override
+
+	When cameralock is enabled, disable all movement inputs
+*/
+
 
 BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.3", PLUGINTYPE_SPECTATOR)
 
-#define GET_DURATION(x, y) chrono::duration<double> x = chrono::duration_cast<chrono::duration<double>>(chrono::steady_clock::now() - y)
+#define GET_DURATION(x, y) std::chrono::duration<double> x = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - y)
 
 void SpectatorControls::onLoad()
 {
 	//CVARS
-	enableRestoration = make_shared<bool>(false);
-	lockPosition = make_shared<bool>(false);
-	overrideZoom = make_shared<bool>(false);
-	overrideZoomTransition = make_shared<float>(0.f);
-	overrideZoomSpeed = make_shared<float>(0.f);
-	overrideZoomMax = make_shared<float>(0.f);
-	overrideZoomMin = make_shared<float>(0.f);
-	zoomIncrementAmount = make_shared<float>(0.f);
+	enableRestoration = std::make_shared<bool>(false);
+	lockPosition = std::make_shared<bool>(false);
+	overrideZoom = std::make_shared<bool>(false);
+	overrideZoomTransition = std::make_shared<float>(0.f);
+	overrideZoomSpeed = std::make_shared<float>(0.f);
+	overrideZoomMax = std::make_shared<float>(0.f);
+	overrideZoomMin = std::make_shared<float>(0.f);
+	zoomIncrementAmount = std::make_shared<float>(0.f);
 
 	cvarManager->registerCvar("Spectate_EnableRestoration", "1", "Saves camera values before a goal replay and restores values after goal replay", true, true, 0, true, 1).bindTo(enableRestoration);
 	cvarManager->registerCvar("Spectate_LockPosition", "0", "Locks the camera to the last specified position", true, true, 0, true, 1).bindTo(lockPosition);
 	cvarManager->registerCvar("Spectate_OverrideZoom", "0", "Overrides zoom controls with analog triggers", true, true, 0, true, 1).bindTo(overrideZoom);
-	cvarManager->getCvar("Spectate_LockPosition").addOnValueChanged(bind(&SpectatorControls::OnLockPositionChanged, this));
-	cvarManager->getCvar("Spectate_OverrideZoom").addOnValueChanged(bind(&SpectatorControls::OnZoomEnabledChanged, this));
+	cvarManager->getCvar("Spectate_LockPosition").addOnValueChanged(std::bind(&SpectatorControls::OnLockPositionChanged, this));
+	cvarManager->getCvar("Spectate_OverrideZoom").addOnValueChanged(std::bind(&SpectatorControls::OnZoomEnabledChanged, this));
 
 	cvarManager->registerCvar("Spectate_OverrideZoom_Transition_Time", "0.5", "Averages zoom input", true, true, 0, true, 2).bindTo(overrideZoomTransition);
 	cvarManager->registerCvar("Spectate_OverrideZoom_Speed", "45", "Zoom speed", true, true, 0, true, 150).bindTo(overrideZoomSpeed);
@@ -31,24 +42,25 @@ void SpectatorControls::onLoad()
 	cvarManager->registerCvar("Spectate_OverrideZoom_Speed_Increment_Amount", "20", "Zoom speed increment amount", true, true, 0, true, 100).bindTo(zoomIncrementAmount);
 
 	//NOTIFIERS
-	cvarManager->registerNotifier("SpectateGetCamera",         [this](std::vector<string> params){GetCameraAll();}, "Print camera data to add to list of options", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateSetCamera",         [this](std::vector<string> params){SetCameraAll(params);}, "Set camera position location and rotation. Usage: SpectateSetCamera <loc X> <loc Y> <loc Z> <rot X (in degrees)> <rot y> <rot z> <FOV>", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateGetCameraPosition", [this](std::vector<string> params){GetCameraPosition();}, "Print camera position", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateSetCameraPosition", [this](std::vector<string> params){SetCameraPosition(params);}, "Set camera position. Usage: SpectateSetCameraPosition <loc X> <loc Y> <loc Z>", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateGetCameraRotation", [this](std::vector<string> params){GetCameraRotation();}, "Print camera rotation", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateSetCameraRotation", [this](std::vector<string> params){SetCameraRotation(params);}, "Set camera rotation. Usage: SpectateSetCameraRotation <rot X (in degrees)> <rot y> <rot z>", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateGetCameraFOV",      [this](std::vector<string> params){GetCameraFOV();}, "Print camera FOV", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateSetCameraFOV",      [this](std::vector<string> params){SetCameraFOV(params);}, "Set camera FOV. Usage: SpectateSetCameraFOV <FOV>", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateIncreaseZoomSpeed", [this](std::vector<string> params){ChangeZoomSpeed(true);}, "Increases zoom speed by 20", PERMISSION_ALL);
-	cvarManager->registerNotifier("SpectateDecreaseZoomSpeed", [this](std::vector<string> params){ChangeZoomSpeed(false);}, "Decreases zoom speed by 20", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateGetCamera",         [this](std::vector<std::string> params){GetCameraAll();}, "Print camera data to add to list of options", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateSetCamera",         [this](std::vector<std::string> params){SetCameraAll(params);}, "Set camera position location and rotation. Usage: SpectateSetCamera <loc X> <loc Y> <loc Z> <rot X (in degrees)> <rot y> <rot z> <FOV>", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateGetCameraPosition", [this](std::vector<std::string> params){GetCameraPosition();}, "Print camera position", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateSetCameraPosition", [this](std::vector<std::string> params){SetCameraPosition(params);}, "Set camera position. Usage: SpectateSetCameraPosition <loc X> <loc Y> <loc Z>", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateGetCameraRotation", [this](std::vector<std::string> params){GetCameraRotation();}, "Print camera rotation", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateSetCameraRotation", [this](std::vector<std::string> params){SetCameraRotation(params);}, "Set camera rotation. Usage: SpectateSetCameraRotation <rot X (in degrees)> <rot y> <rot z>", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateGetCameraFOV",      [this](std::vector<std::string> params){GetCameraFOV();}, "Print camera FOV", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateSetCameraFOV",      [this](std::vector<std::string> params){SetCameraFOV(params);}, "Set camera FOV. Usage: SpectateSetCameraFOV <FOV>", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateIncreaseZoomSpeed", [this](std::vector<std::string> params){ChangeZoomSpeed(true);}, "Increases zoom speed by 20", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateDecreaseZoomSpeed", [this](std::vector<std::string> params){ChangeZoomSpeed(false);}, "Decreases zoom speed by 20", PERMISSION_ALL);
 
-	cvarManager->registerNotifier("SpectateSetCameraPositionFlyBall", [this](std::vector<string> params){SetCameraPositionFlyBall(params);},
-									  "Force the camera into flycam with the ball as the target and set the position", PERMISSION_ALL);
+	cvarManager->registerNotifier("SpectateSetCameraFlyBall", [this](std::vector<std::string> params){SetCameraFlyBall();},
+									  "Force the camera into flycam with the ball as the target", PERMISSION_ALL);
 
 	//HOOK EVENTS
 	gameWrapper->HookEvent("Function TAGame.Camera_Replay_TA.UpdateCamera", std::bind(&SpectatorControls::CameraTick, this));
-	gameWrapper->HookEvent("Function TAGame.Team_TA.EventScoreUpdated", bind(&SpectatorControls::StoreCameraAll, this));
-	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", bind(&SpectatorControls::ResetCameraAll, this));
+    gameWrapper->HookEvent("Function TAGame.PlayerInput_TA.PlayerInput", std::bind(&SpectatorControls::LockPosition, this));
+	gameWrapper->HookEvent("Function TAGame.Team_TA.EventScoreUpdated", std::bind(&SpectatorControls::StoreCameraAll, this));
+	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", std::bind(&SpectatorControls::ResetCameraAll, this));
 	
 	//KEYBINDS
 	zoomInName = "Spectate_Keybind_ZoomIn";
@@ -68,9 +80,9 @@ void SpectatorControls::onLoad()
 	keyZoomOut = gameWrapper->GetFNameIndexByString(cvarManager->getCvar(zoomOutName).getStringValue());
 }
 void SpectatorControls::onUnload(){}
-void SpectatorControls::OnKeyChanged(int key, string cvarName)
+void SpectatorControls::OnKeyChanged(int key, std::string cvarName)
 {
-	string stringValue = cvarManager->getCvar(cvarName).getStringValue();
+	std::string stringValue = cvarManager->getCvar(cvarName).getStringValue();
 
 	if(key == 0) keyZoomIn = gameWrapper->GetFNameIndexByString(stringValue);
 	else if(key == 1) keyZoomOut = gameWrapper->GetFNameIndexByString(stringValue);
@@ -103,7 +115,7 @@ void SpectatorControls::StoreCameraAll()
 }
 void SpectatorControls::ResetCameraAll()
 {
-	if(!(*enableRestoration)) return;
+	if(!(*enableRestoration) || !gameWrapper->GetLocalCar().IsNull()) return;
 
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull() && gameWrapper->GetLocalCar().IsNull())
@@ -120,18 +132,28 @@ void SpectatorControls::CameraTick()
 {
 	//chrono::duration<double> dur = chrono::duration_cast<chrono::duration<double>>(chrono::steady_clock::now() - previousTime);
 	GET_DURATION(dur, previousTime);
-	previousTime = chrono::steady_clock::now();
+	previousTime = std::chrono::steady_clock::now();
 	double delta = dur.count() / baseDelta;//Get delta time for consistent zoom override
 
-	if(*lockPosition) LockPosition();
+    if(!gameWrapper->GetLocalCar().IsNull()) return;
+
 	if(*overrideZoom) OverrideZoom(delta);
 }
 void SpectatorControls::LockPosition()
 {
+    if(!(*lockPosition) || !gameWrapper->GetLocalCar().IsNull()) return;
+
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(camera.IsNull()) return;
 
 	camera.SetLocation(savedLocation);
+    
+    PlayerControllerWrapper controller = gameWrapper->GetPlayerController();
+	controller.SetAForward(0);
+	controller.SetAStrafe(0);
+	controller.SetAUp(0);
+	controller.SetATurn(0);
+	controller.SetALookUp(0);
 }
 void SpectatorControls::OnLockPositionChanged()
 {
@@ -146,7 +168,17 @@ void SpectatorControls::OnLockPositionChanged()
 void SpectatorControls::OverrideZoom(double delta)
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
-	if(camera.IsNull()) return;
+	if(camera.IsNull() || !gameWrapper->GetLocalCar().IsNull()) return;
+
+    if(camera.GetCameraState().find("ReplayFly") == std::string::npos)
+    {
+        if(camera.GetCameraState().find("CameraState_Car_TA") != std::string::npos)
+        {
+            camera.SetFOV(camera.GetCameraSettings().FOV);
+        }
+        camera.SetbLockedFOV(0);
+        return;
+    }
 
 	//Add new input value
 	double input = 0.0;
@@ -160,7 +192,7 @@ void SpectatorControls::OverrideZoom(double delta)
 	}
 
 	//Refresh inputs list
-	zoomInputs.push_back(ZoomInput{input, *overrideZoomSpeed, chrono::steady_clock::now()});
+	zoomInputs.push_back(ZoomInput{input, *overrideZoomSpeed, std::chrono::steady_clock::now()});
 	bool haveUpdatedInputs = false;
 	while(!haveUpdatedInputs)
 	{
@@ -231,14 +263,14 @@ void SpectatorControls::GetCameraAll()
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
 	{
-		cvarManager->log("Position: " + to_string(camera.GetLocation().X) + ", " + to_string(camera.GetLocation().Y) + ", " + to_string(camera.GetLocation().Z));
-		cvarManager->log("Rotation Degrees: " + to_string(camera.GetRotation().Pitch / 182.044449) + ", " + to_string(camera.GetRotation().Yaw / 182.044449) + ", " + to_string(camera.GetRotation().Roll / 182.044449));
-		cvarManager->log("FOV: " + to_string(camera.GetFOV()));
-		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCamera " + to_string(camera.GetLocation().X) + " " + to_string(camera.GetLocation().Y) + " " + to_string(camera.GetLocation().Z) + " " + to_string(camera.GetRotation().Pitch / 182.044449) + " " + to_string(camera.GetRotation().Yaw / 182.044449) + " " + to_string(camera.GetRotation().Roll / 182.044449) + " " + to_string(camera.GetFOV()));
-		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCamera " + to_string(camera.GetLocation().X) + " " + to_string(camera.GetLocation().Y) + " " + to_string(camera.GetLocation().Z) + " " + to_string(camera.GetRotation().Pitch / 182.044449) + " " + to_string(camera.GetRotation().Yaw / 182.044449) + " " + to_string(camera.GetRotation().Roll / 182.044449) + " " + to_string(camera.GetFOV()) + "\"");
+		cvarManager->log("Position: " + std::to_string(camera.GetLocation().X) + ", " + std::to_string(camera.GetLocation().Y) + ", " + std::to_string(camera.GetLocation().Z));
+		cvarManager->log("Rotation Degrees: " + std::to_string(camera.GetRotation().Pitch / 182.044449) + ", " + std::to_string(camera.GetRotation().Yaw / 182.044449) + ", " + std::to_string(camera.GetRotation().Roll / 182.044449));
+		cvarManager->log("FOV: " + std::to_string(camera.GetFOV()));
+		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCamera " + std::to_string(camera.GetLocation().X) + " " + std::to_string(camera.GetLocation().Y) + " " + std::to_string(camera.GetLocation().Z) + " " + std::to_string(camera.GetRotation().Pitch / 182.044449) + " " + std::to_string(camera.GetRotation().Yaw / 182.044449) + " " + std::to_string(camera.GetRotation().Roll / 182.044449) + " " + std::to_string(camera.GetFOV()));
+		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCamera " + std::to_string(camera.GetLocation().X) + " " + std::to_string(camera.GetLocation().Y) + " " + std::to_string(camera.GetLocation().Z) + " " + std::to_string(camera.GetRotation().Pitch / 182.044449) + " " + std::to_string(camera.GetRotation().Yaw / 182.044449) + " " + std::to_string(camera.GetRotation().Roll / 182.044449) + " " + std::to_string(camera.GetFOV()) + "\"");
 	}
 }
-void SpectatorControls::SetCameraAll(std::vector<string> params)
+void SpectatorControls::SetCameraAll(std::vector<std::string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -300,12 +332,12 @@ void SpectatorControls::GetCameraPosition()
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
 	{
-		cvarManager->log("Position: " + to_string(camera.GetLocation().X) + ", " + to_string(camera.GetLocation().Y) + ", " + to_string(camera.GetLocation().Z));
-		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCameraPosition " + to_string(camera.GetLocation().X) + " " + to_string(camera.GetLocation().Y) + " " + to_string(camera.GetLocation().Z));
-		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraPosition " + to_string(camera.GetLocation().X) + " " + to_string(camera.GetLocation().Y) + " " + to_string(camera.GetLocation().Z) + "\"");
+		cvarManager->log("Position: " + std::to_string(camera.GetLocation().X) + ", " + std::to_string(camera.GetLocation().Y) + ", " + std::to_string(camera.GetLocation().Z));
+		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCameraPosition " + std::to_string(camera.GetLocation().X) + " " + std::to_string(camera.GetLocation().Y) + " " + std::to_string(camera.GetLocation().Z));
+		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraPosition " + std::to_string(camera.GetLocation().X) + " " + std::to_string(camera.GetLocation().Y) + " " + std::to_string(camera.GetLocation().Z) + "\"");
 	}
 }
-void SpectatorControls::SetCameraPosition(std::vector<string> params)
+void SpectatorControls::SetCameraPosition(std::vector<std::string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -341,12 +373,12 @@ void SpectatorControls::GetCameraRotation()
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
 	{
-		cvarManager->log("Rotation Degrees: " + to_string(camera.GetRotation().Pitch / 182.044449) + ", " + to_string(camera.GetRotation().Yaw / 182.044449) + ", " + to_string(camera.GetRotation().Roll / 182.044449));
-		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCameraRotation " + to_string(camera.GetRotation().Pitch / 182.044449) + " " + to_string(camera.GetRotation().Yaw / 182.044449) + " " + to_string(camera.GetRotation().Roll / 182.044449));
-		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraRotation " + to_string(camera.GetRotation().Pitch / 182.044449) + " " + to_string(camera.GetRotation().Yaw / 182.044449) + " " + to_string(camera.GetRotation().Roll / 182.044449) + "\"");
+		cvarManager->log("Rotation Degrees: " + std::to_string(camera.GetRotation().Pitch / 182.044449) + ", " + std::to_string(camera.GetRotation().Yaw / 182.044449) + ", " + std::to_string(camera.GetRotation().Roll / 182.044449));
+		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCameraRotation " + std::to_string(camera.GetRotation().Pitch / 182.044449) + " " + std::to_string(camera.GetRotation().Yaw / 182.044449) + " " + std::to_string(camera.GetRotation().Roll / 182.044449));
+		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraRotation " + std::to_string(camera.GetRotation().Pitch / 182.044449) + " " + std::to_string(camera.GetRotation().Yaw / 182.044449) + " " + std::to_string(camera.GetRotation().Roll / 182.044449) + "\"");
 	}
 }
-void SpectatorControls::SetCameraRotation(std::vector<string> params)
+void SpectatorControls::SetCameraRotation(std::vector<std::string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -381,12 +413,12 @@ void SpectatorControls::GetCameraFOV()
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull())
 	{
-		cvarManager->log("FOV: " + to_string(camera.GetFOV()));
-		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCameraFOV " + to_string(camera.GetFOV()));
-		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraFOV " + to_string(camera.GetFOV()) + "\"");
+		cvarManager->log("FOV: " + std::to_string(camera.GetFOV()));
+		cvarManager->log("copypaste for UI: 0|BUTTONNAME|SpectateSetCameraFOV " + std::to_string(camera.GetFOV()));
+		cvarManager->log("copypaste for keybind: bind KEY \"SpectateSetCameraFOV " + std::to_string(camera.GetFOV()) + "\"");
 	}
 }
-void SpectatorControls::SetCameraFOV(std::vector<string> params)
+void SpectatorControls::SetCameraFOV(std::vector<std::string> params)
 {
 	if(gameWrapper->GetLocalCar().IsNull())
 	{
@@ -409,7 +441,7 @@ void SpectatorControls::SetCameraFOV(std::vector<string> params)
 }
 
 //FORCE FLYCAM
-void SpectatorControls::SetCameraPositionFlyBall(vector<string> params)
+void SpectatorControls::SetCameraFlyBall()
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(camera.IsNull()) return;
@@ -422,7 +454,7 @@ void SpectatorControls::SetCameraPositionFlyBall(vector<string> params)
 	{
 		camera.SetCameraState("Fly");
 		camera.SetFocusActor("Ball");
-		SetCameraPosition(params);
+		//SetCameraPosition(params);
 		return;
 	}
 	else
