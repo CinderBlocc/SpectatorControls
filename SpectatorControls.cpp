@@ -1,20 +1,19 @@
 #include "SpectatorControls.h"
 
-//using namespace std;
-
 
 /*
 
-	HOOK TAGame.PlayerInput_TA.PlayerInput TO GET FULL INPUTS
-	Right/Left trigger are "aUp"
-	Use that to get analog input for zoom override
+    TO-DO
+        - Add smoothed RT::LookAt to track a player or the ball?
+
+        - Smooth out forward/strafe movement?
 
 */
 
 
 BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.4", PLUGINTYPE_SPECTATOR)
 
-#define GET_DURATION(x, y) std::chrono::duration<double> x = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - y)
+#define GET_DURATION(x, y) std::chrono::duration<float> x = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::steady_clock::now() - y)
 
 void SpectatorControls::onLoad()
 {
@@ -57,7 +56,7 @@ void SpectatorControls::onLoad()
 
 	//HOOK EVENTS
 	gameWrapper->HookEvent("Function TAGame.Camera_Replay_TA.UpdateCamera", std::bind(&SpectatorControls::CameraTick, this));
-    gameWrapper->HookEvent("Function TAGame.PlayerInput_TA.PlayerInput", std::bind(&SpectatorControls::LockPosition, this));
+    gameWrapper->HookEvent("Function TAGame.PlayerInput_TA.PlayerInput", std::bind(&SpectatorControls::PlayerInputTick, this));
 	gameWrapper->HookEvent("Function TAGame.Team_TA.EventScoreUpdated", std::bind(&SpectatorControls::StoreCameraAll, this));
 	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", std::bind(&SpectatorControls::ResetCameraAll, this));
 	
@@ -132,11 +131,27 @@ void SpectatorControls::CameraTick()
 	//chrono::duration<double> dur = chrono::duration_cast<chrono::duration<double>>(chrono::steady_clock::now() - previousTime);
 	GET_DURATION(dur, previousTime);
 	previousTime = std::chrono::steady_clock::now();
-	double delta = dur.count() / baseDelta;//Get delta time for consistent zoom override
+	float delta = dur.count() / baseDelta;//Get delta time for consistent zoom override
 
     if(!gameWrapper->GetLocalCar().IsNull()) return;
 
 	if(*overrideZoom) OverrideZoom(delta);
+}
+void SpectatorControls::PlayerInputTick()
+{
+    GetCameraInputs();
+    LockPosition();
+}
+void SpectatorControls::GetCameraInputs()
+{
+    PlayerControllerWrapper pc = gameWrapper->GetPlayerController();
+    if(pc.IsNull()) { return; }
+
+	currentCameraInputs.Forward = pc.GetAForward();
+	currentCameraInputs.Strafe  = pc.GetAStrafe();
+	currentCameraInputs.Up      = pc.GetAUp();
+	currentCameraInputs.Turn    = pc.GetATurn();
+	currentCameraInputs.LookUp  = pc.GetALookUp();
 }
 void SpectatorControls::LockPosition()
 {
@@ -164,7 +179,7 @@ void SpectatorControls::OnLockPositionChanged()
 		savedLocation = camera.GetLocation();
 	}
 }
-void SpectatorControls::OverrideZoom(double delta)
+void SpectatorControls::OverrideZoom(float delta)
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(camera.IsNull() || !gameWrapper->GetLocalCar().IsNull()) return;
@@ -180,14 +195,28 @@ void SpectatorControls::OverrideZoom(double delta)
     }
 
 	//Add new input value
-	double input = 0.0;
+	float input = 0.f;
 	if(gameWrapper->IsKeyPressed(keyZoomOut))
 	{
-		input += (1.0 * delta);
+        if(cvarManager->getCvar(zoomOutName).getStringValue() == "XboxTypeS_LeftTrigger" && currentCameraInputs.Up < 0)
+        {
+            input += (-currentCameraInputs.Up * delta);
+        }
+        else
+        {
+    		input += (1.f * delta);
+        }
 	}
 	if(gameWrapper->IsKeyPressed(keyZoomIn))
 	{
-		input -= (1.0 * delta);
+        if(cvarManager->getCvar(zoomInName).getStringValue() == "XboxTypeS_RightTrigger" && currentCameraInputs.Up > 0)
+        {
+            input += (-currentCameraInputs.Up * delta);
+        }
+        else
+        {
+    		input += (-1.f * delta);
+        }
 	}
 
 	//Refresh inputs list
@@ -206,10 +235,10 @@ void SpectatorControls::OverrideZoom(double delta)
 	//Generate zoom amount from averaged inputs and chosen zoom speed multiplier
 	double totalInput = 0;
 	float totalSpeed = 0;
-	for(int i=0; i<zoomInputs.size(); i++)
+	for(const auto &zoomInput : zoomInputs)
 	{
-		totalInput += zoomInputs[i].amount;
-		totalSpeed += zoomInputs[i].speed;
+		totalInput += zoomInput.amount;
+		totalSpeed += zoomInput.speed;
 	}
 	float avgInput = (float)totalInput / (float)zoomInputs.size();
 	float avgSpeed = totalSpeed / (float)zoomInputs.size();
@@ -365,7 +394,6 @@ void SpectatorControls::SetCameraPosition(std::vector<std::string> params)
 		cvarManager->log("Cannot change camera while in control of a car!");
 }
 
-
 //ROTATION
 void SpectatorControls::GetCameraRotation()
 {
@@ -442,20 +470,19 @@ void SpectatorControls::SetCameraFOV(std::vector<std::string> params)
 //FORCE FLYCAM
 void SpectatorControls::SetCameraFlyBall()
 {
-	CameraWrapper camera = gameWrapper->GetCamera();
-	if(camera.IsNull()) return;
-	ServerWrapper server = GetCurrentGameState();
-	if(server.IsNull()) return;
-	BallWrapper ball = server.GetBall();
-	if(ball.IsNull()) return;
-	
-	if(gameWrapper->GetLocalCar().IsNull())
-	{
-		camera.SetCameraState("Fly");
-		camera.SetFocusActor("Ball");
-		//SetCameraPosition(params);
-		return;
-	}
-	else
-		cvarManager->log("Cannot change camera while in control of a car!");
+    //Waiting on an update to the SDK before pushing this
+
+	//CameraWrapper camera = gameWrapper->GetCamera();
+	//if(camera.IsNull()) return;
+	//ServerWrapper server = GetCurrentGameState();
+	//if(server.IsNull()) return;
+	//BallWrapper ball = server.GetBall();
+	//if(ball.IsNull()) return;
+	//
+	//if(gameWrapper->GetLocalCar().IsNull())
+	//{
+    //    camera.SetFlyCamBallTargetMode();
+	//}
+	//else
+	//	cvarManager->log("Cannot change camera while in control of a car!");
 }

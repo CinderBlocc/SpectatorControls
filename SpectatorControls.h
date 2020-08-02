@@ -28,7 +28,7 @@ private:
 	std::string zoomSpeedIncreaseName;
 	std::string zoomSpeedDecreaseName;
 
-	const double baseDelta = 1.0/60.0;
+	const float baseDelta = 1.f/60.f;
 	std::chrono::steady_clock::time_point previousTime;
 	struct ZoomInput
 	{
@@ -38,9 +38,20 @@ private:
 	};
 	std::vector<ZoomInput> zoomInputs;
 
+    struct CameraInputs
+    {
+        float Forward;
+        float Strafe;
+        float Up;
+        float Turn;
+        float LookUp;
+    };
+
+    CameraInputs currentCameraInputs;
+
 public:
-	virtual void onLoad();
-	virtual void onUnload();
+	void onLoad() override;
+	void onUnload() override;
 
 	void OnKeyChanged(int key, std::string cvarName);
 	ServerWrapper GetCurrentGameState();
@@ -49,9 +60,11 @@ public:
 	void StoreCameraAll();
 
 	void CameraTick();
+    void PlayerInputTick();
+    void GetCameraInputs();
 	void LockPosition();
 	void OnLockPositionChanged();
-	void OverrideZoom(double delta);
+	void OverrideZoom(float delta);
 	void ChangeZoomSpeed(bool increaseOrDecrease);
 	void OnZoomEnabledChanged();
 
