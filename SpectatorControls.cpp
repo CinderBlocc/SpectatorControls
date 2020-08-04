@@ -11,7 +11,7 @@
 */
 
 
-BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.4", PLUGINTYPE_SPECTATOR)
+BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.5", PLUGINTYPE_SPECTATOR)
 
 #define GET_DURATION(x, y) std::chrono::duration<float> x = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::steady_clock::now() - y)
 
@@ -470,19 +470,17 @@ void SpectatorControls::SetCameraFOV(std::vector<std::string> params)
 //FORCE FLYCAM
 void SpectatorControls::SetCameraFlyBall()
 {
-    //Waiting on an update to the SDK before pushing this
-
-	//CameraWrapper camera = gameWrapper->GetCamera();
-	//if(camera.IsNull()) return;
-	//ServerWrapper server = GetCurrentGameState();
-	//if(server.IsNull()) return;
-	//BallWrapper ball = server.GetBall();
-	//if(ball.IsNull()) return;
-	//
-	//if(gameWrapper->GetLocalCar().IsNull())
-	//{
-    //    camera.SetFlyCamBallTargetMode();
-	//}
-	//else
-	//	cvarManager->log("Cannot change camera while in control of a car!");
+	CameraWrapper camera = gameWrapper->GetCamera();
+	if(camera.IsNull()) return;
+	ServerWrapper server = GetCurrentGameState();
+	if(server.IsNull()) return;
+	BallWrapper ball = server.GetBall();
+	if(ball.IsNull()) return;
+	
+	if(gameWrapper->GetLocalCar().IsNull())
+	{
+        camera.SetFlyCamBallTargetMode();
+	}
+	else
+		cvarManager->log("Cannot change camera while in control of a car!");
 }
