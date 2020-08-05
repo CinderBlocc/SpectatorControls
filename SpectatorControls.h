@@ -9,12 +9,15 @@ class SpectatorControls : public BakkesMod::Plugin::BakkesModPlugin
 private:
 	std::shared_ptr<bool> enableRestoration;
 	std::shared_ptr<bool> lockPosition;
+    std::shared_ptr<bool> lockVerticalMovement;
 	std::shared_ptr<bool> overrideZoom;
 	std::shared_ptr<float> overrideZoomTransition;
 	std::shared_ptr<float> overrideZoomSpeed;
 	std::shared_ptr<float> overrideZoomMax;
 	std::shared_ptr<float> overrideZoomMin;
 	std::shared_ptr<float> zoomIncrementAmount;
+    std::shared_ptr<float> rotationSmoothDuration;
+    std::shared_ptr<float> rotationSmoothMultiplier;
 
 	Vector  savedLocation = {0,0,100};
 	Rotator savedRotation = {0,0,0};
@@ -38,6 +41,14 @@ private:
 	};
 	std::vector<ZoomInput> zoomInputs;
 
+    struct RotationInput
+    {
+        float lookUpAmount;
+        float turnAmount;
+        std::chrono::steady_clock::time_point inputTime;
+    };
+    std::vector<RotationInput> rotationInputs;
+
     struct CameraInputs
     {
         float Forward;
@@ -55,6 +66,7 @@ public:
 
 	void OnKeyChanged(int key, std::string cvarName);
 	ServerWrapper GetCurrentGameState();
+    bool IsValidState();
 
 	void ResetCameraAll();
 	void StoreCameraAll();
@@ -64,6 +76,7 @@ public:
     void GetCameraInputs();
 	void LockPosition();
 	void OnLockPositionChanged();
+    void SmoothRotationInputs();
 	void OverrideZoom(float delta);
 	void ChangeZoomSpeed(bool increaseOrDecrease);
 	void OnZoomEnabledChanged();
@@ -81,4 +94,5 @@ public:
 	void SetCameraFOV(std::vector<std::string> params);
 
 	void SetCameraFlyBall();
+    void SetCameraFlyNoTarget();
 };
