@@ -1,13 +1,9 @@
 #include "SpectatorControls.h"
 
-
 /*
-
     TO-DO
-        - Add smoothed RT::LookAt to track a player or the ball?
-
-        - Smooth out forward/strafe movement?
-
+        - Change the "queueXYZChange" back to a direct call to ApplyCameraSettings
+            - Those were for testing why the FOV wasn't changing. I figured it mightve been because I was calling those outside the camera tick
 */
 
 BAKKESMOD_PLUGIN(SpectatorControls, "Tools for spectators", "1.5", PLUGINTYPE_SPECTATOR)
@@ -59,6 +55,8 @@ void SpectatorControls::onLoad()
 
 	cvarManager->registerNotifier("SpectateSetCameraFlyBall", [this](std::vector<std::string> params){SetCameraFlyBall();}, "Force the camera into flycam with the ball as the target", PERMISSION_ALL);
     cvarManager->registerNotifier("SpectateSetCameraFlyNoTarget", [this](std::vector<std::string> params){SetCameraFlyNoTarget();}, "Force the camera into flycam with no target", PERMISSION_ALL);
+
+    cvarManager->registerNotifier("SpectateUnlockFOV", [this](std::vector<std::string> params){UnlockFOV();}, "Unlock camera FOV. Will reenable scroll wheel zooming", PERMISSION_ALL);
 
 	//HOOK EVENTS
 	gameWrapper->HookEvent("Function TAGame.Camera_Replay_TA.UpdateCamera", std::bind(&SpectatorControls::CameraTick, this));
@@ -141,10 +139,9 @@ void SpectatorControls::ResetCameraAll()
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if(!camera.IsNull() && gameWrapper->GetLocalCar().IsNull())
 	{
-		camera.SetLocation(savedLocation);
-		camera.SetRotation(savedRotation);
-		camera.SetFOV(savedFOV);
-		camera.SetbLockedFOV(0);
+		queuePositionChange = true;
+        queueRotationChange = true;
+        queueFOVChange = true;
 	}
 }
 
@@ -156,9 +153,12 @@ void SpectatorControls::CameraTick()
 	previousTime = std::chrono::steady_clock::now();
 	float delta = dur.count() / baseDelta;//Get delta time for consistent zoom override
 
-    if(!gameWrapper->GetLocalCar().IsNull()) return;
+	OverrideZoom(delta);
 
-	if(*overrideZoom) OverrideZoom(delta);
+    if(queuePositionChange || queueRotationChange || queueFOVChange)
+    {
+        ApplyCameraSettings();
+    }
 }
 void SpectatorControls::PlayerInputTick()
 {
@@ -257,7 +257,7 @@ void SpectatorControls::SmoothRotationInputs()
 void SpectatorControls::OverrideZoom(float delta)
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
-	if(camera.IsNull() || !gameWrapper->GetLocalCar().IsNull()) return;
+	if(!*overrideZoom || camera.IsNull() || !gameWrapper->GetLocalCar().IsNull()) return;
 
     if(camera.GetCameraState().find("ReplayFly") == std::string::npos)
     {
@@ -265,7 +265,7 @@ void SpectatorControls::OverrideZoom(float delta)
         {
             camera.SetFOV(camera.GetCameraSettings().FOV);
         }
-        camera.SetbLockedFOV(0);
+        camera.SetbLockedFOV(false);
         return;
     }
 
@@ -360,6 +360,39 @@ void SpectatorControls::OnZoomEnabledChanged()
 		camera.SetbLockedFOV(false);
 }
 
+void SpectatorControls::ApplyCameraSettings()
+{
+    CameraWrapper camera = gameWrapper->GetCamera();
+    if(!camera.IsNull())
+    {
+        if(queuePositionChange)
+        {
+            camera.SetLocation(savedLocation);
+        }
+        if(queueRotationChange)
+        {
+            camera.SetRotation(savedRotation);
+        }
+        if(queueFOVChange)
+        {
+	        camera.SetFOV(savedFOV);
+	        //camera.SetLockedFOV(false);
+        }
+    }
+
+    queuePositionChange = false;
+    queueRotationChange = false;
+    queueFOVChange = false;
+}
+void SpectatorControls::UnlockFOV()
+{
+    CameraWrapper camera = gameWrapper->GetCamera();
+    if(!camera.IsNull())
+    {
+        camera.SetLockedFOV(false);
+    }
+}
+
 //ALL
 void SpectatorControls::GetCameraAll()
 {
@@ -378,25 +411,28 @@ void SpectatorControls::SetCameraAll(std::vector<std::string> params)
 	if(!IsValidState()) { return; }
 
 	CameraWrapper camera = gameWrapper->GetCamera();
-
+    
 	//Location
-    savedLocation.X = (params.size() > 1) ? stof(params.at(1)) : camera.GetLocation().X;
-    savedLocation.Y = (params.size() > 2) ? stof(params.at(2)) : camera.GetLocation().Y;
-    savedLocation.Z = (params.size() > 3) ? stof(params.at(3)) : camera.GetLocation().Z;
+    savedLocation.X = (params.size() > 1) ? stof(params.at(1)) : camera.GetLocation().X; cvarManager->log("savedLocation.X: " + std::to_string(savedLocation.X));
+    savedLocation.Y = (params.size() > 2) ? stof(params.at(2)) : camera.GetLocation().Y; cvarManager->log("savedLocation.Y: " + std::to_string(savedLocation.Y));
+    savedLocation.Z = (params.size() > 3) ? stof(params.at(3)) : camera.GetLocation().Z; cvarManager->log("savedLocation.Z: " + std::to_string(savedLocation.Z));
 
 	//Rotation
-    savedRotation.Pitch = (params.size() > 4) ? (int)(stof(params.at(4)) * 182.044449) : camera.GetRotation().Pitch;
-    savedRotation.Yaw   = (params.size() > 5) ? (int)(stof(params.at(5)) * 182.044449) : camera.GetRotation().Yaw;
-    savedRotation.Roll  = (params.size() > 6) ? (int)(stof(params.at(6)) * 182.044449) : camera.GetRotation().Roll;
+    savedRotation.Pitch = (params.size() > 4) ? (int)(stof(params.at(4)) * 182.044449) : camera.GetRotation().Pitch; cvarManager->log("savedRotation.Pitch: " + std::to_string(savedRotation.Pitch));
+    savedRotation.Yaw   = (params.size() > 5) ? (int)(stof(params.at(5)) * 182.044449) : camera.GetRotation().Yaw;   cvarManager->log("savedRotation.Yaw: " + std::to_string(savedRotation.Yaw));
+    savedRotation.Roll  = (params.size() > 6) ? (int)(stof(params.at(6)) * 182.044449) : camera.GetRotation().Roll;  cvarManager->log("savedRotation.Roll: " + std::to_string(savedRotation.Roll));
 
 	//FOV
-	savedFOV = (params.size() > 7) ? stof(params.at(7)) : camera.GetFOV();
+	savedFOV = (params.size() > 7) ? stof(params.at(7)) : camera.GetFOV(); cvarManager->log("savedFOV: " + std::to_string(savedFOV));
 
-	//Set values
-	camera.SetLocation(savedLocation);
-	camera.SetRotation(savedRotation);
-	camera.SetFOV(savedFOV);
-	camera.SetbLockedFOV(false);	
+	//Set values	
+    cvarManager->log("Current camera FOV: " + std::to_string(camera.GetFOV()));
+
+    queuePositionChange = true;
+    queueRotationChange = true;
+    queueFOVChange = true;
+
+    cvarManager->log("FOV after camera.SetFOV: " + std::to_string(camera.GetFOV()));
 }
 
 //POSITION
@@ -422,7 +458,7 @@ void SpectatorControls::SetCameraPosition(std::vector<std::string> params)
     savedLocation.Z = (params.size() > 3) ? stof(params.at(3)) : camera.GetLocation().Z;
 
 	//Set values
-	camera.SetLocation(savedLocation);
+	queuePositionChange = true;
 }
 
 //ROTATION
@@ -448,7 +484,7 @@ void SpectatorControls::SetCameraRotation(std::vector<std::string> params)
     savedRotation.Roll  = (params.size() > 3) ? (int)(stof(params.at(3)) * 182.044449) : camera.GetRotation().Roll;
 
 	//Set values
-	camera.SetRotation(savedRotation);
+	queueRotationChange = true;
 }
 
 //FOV
@@ -472,8 +508,7 @@ void SpectatorControls::SetCameraFOV(std::vector<std::string> params)
 	savedFOV = (params.size() > 1) ? stof(params.at(1)) : camera.GetFOV();
 
 	//Set values
-	camera.SetFOV(savedFOV);
-	camera.SetbLockedFOV(false);
+	queueFOVChange = true;
 }
 
 //FORCE FLYCAM

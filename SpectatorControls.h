@@ -60,6 +60,10 @@ private:
 
     CameraInputs currentCameraInputs;
 
+    bool queuePositionChange = false;
+    bool queueRotationChange = false;
+    bool queueFOVChange = false;
+
 public:
 	void onLoad() override;
 	void onUnload() override;
@@ -80,6 +84,9 @@ public:
 	void OverrideZoom(float delta);
 	void ChangeZoomSpeed(bool increaseOrDecrease);
 	void OnZoomEnabledChanged();
+
+    void ApplyCameraSettings();
+    void UnlockFOV();
 
 	void GetCameraAll();
 	void SetCameraAll(std::vector<std::string> params);
