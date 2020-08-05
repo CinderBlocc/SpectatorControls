@@ -4,6 +4,14 @@
 #include "bakkesmod/wrappers/includes.h"
 #include <chrono>
 
+enum class KeybindChange
+{
+    KEY_ZoomIn = 0,
+    KEY_ZoomOut,
+    KEY_IncreaseZoomSpeed,
+    KEY_DecreaseZoomSpeed
+};
+
 class SpectatorControls : public BakkesMod::Plugin::BakkesModPlugin
 {
 private:
@@ -60,15 +68,11 @@ private:
 
     CameraInputs currentCameraInputs;
 
-    bool queuePositionChange = false;
-    bool queueRotationChange = false;
-    bool queueFOVChange = false;
-
 public:
 	void onLoad() override;
 	void onUnload() override;
 
-	void OnKeyChanged(int key, std::string cvarName);
+	void OnKeyChanged(KeybindChange changedKey, std::string cvarName);
 	ServerWrapper GetCurrentGameState();
     bool IsValidState();
 
@@ -85,7 +89,6 @@ public:
 	void ChangeZoomSpeed(bool increaseOrDecrease);
 	void OnZoomEnabledChanged();
 
-    void ApplyCameraSettings();
     void UnlockFOV();
 
 	void GetCameraAll();
