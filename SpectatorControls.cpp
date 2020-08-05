@@ -148,6 +148,7 @@ void SpectatorControls::ResetCameraAll()
 		camera.SetLocation(savedLocation);
         camera.SetRotation(savedRotation);
         camera.SetFOV(savedFOV);
+        camera.SetLockedFOV(false);
 	}
 }
 
@@ -257,17 +258,19 @@ void SpectatorControls::SmoothRotationInputs()
 void SpectatorControls::OverrideZoom(float delta)
 {
 	CameraWrapper camera = gameWrapper->GetCamera();
-	if(!*overrideZoom || camera.IsNull() || !gameWrapper->GetLocalCar().IsNull()) return;
+	if(camera.IsNull()) return;
 
     if(camera.GetCameraState().find("ReplayFly") == std::string::npos)
     {
-        if(camera.GetCameraState().find("CameraState_Car_TA") != std::string::npos)
+        if(camera.GetCameraState().find("CameraState_Car_TA") != std::string::npos && gameWrapper->GetLocalCar().IsNull())
         {
             camera.SetFOV(camera.GetCameraSettings().FOV);
         }
         camera.SetbLockedFOV(false);
         return;
     }
+
+    if(!*overrideZoom || !gameWrapper->GetLocalCar().IsNull()) { return; }
 
 	//Add new input value
 	float input = 0.f;
