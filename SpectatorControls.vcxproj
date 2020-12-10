@@ -48,7 +48,7 @@
       <AdditionalLibraryDirectories>$(BAKKESMODSDK)lib</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>python "$(BAKKESMODSDK)bakkes_patchplugin.py" "$(TargetPath)"</Command>
+      <Command>"$(BAKKESMODSDK)\bakkesmod-patch.exe" "$(TargetPath)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
