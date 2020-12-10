@@ -503,7 +503,7 @@ void SpectatorControls::SetCameraFlyNoTarget()
     CameraWrapper camera = gameWrapper->GetCamera();
     if(gameWrapper->GetLocalCar().IsNull() && !camera.IsNull())
     {
-        camera.SetFocusActor("None"); // Should be "" but thats causing crashes at the moment
+        camera.SetFocusActor("");
     }
     else
     {
