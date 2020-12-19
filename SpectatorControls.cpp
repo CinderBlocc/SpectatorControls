@@ -503,7 +503,7 @@ void SpectatorControls::SetCameraFlyNoTarget()
     CameraWrapper camera = gameWrapper->GetCamera();
     if(gameWrapper->GetLocalCar().IsNull() && !camera.IsNull())
     {
-        camera.SetFocusActor("");
+        camera.SetFocusActor("");//Causes weird behavior with FOV. Set FOV after a "sleep 1" command after calling NoTarget
     }
     else
     {
